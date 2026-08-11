@@ -6,13 +6,6 @@ MOMA-Adapter is a lightweight multimodal adaptation framework built upon a froze
 
 > **Status:** This is a public manuscript draft. The **Methodology** (Section III) and **Experiments** (Section IV) sections are intentionally omitted and under active development; the paper skeleton mirrors the IEEE/DCT-PT structure.
 
-## Contents
-
-| File            | Description                                             |
-|-----------------|---------------------------------------------------------|
-| `main.tex`      | IEEE LaTeX manuscript (abstract, intro, related works)  |
-| `refs.bib`      | Bibliography of referenced works                        |
-
 ## Build
 
 Compile with a standard LaTeX toolchain (IEEEtran class, `cite`, `amsmath`):
