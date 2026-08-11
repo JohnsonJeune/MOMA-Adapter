@@ -1,0 +1,129 @@
+\documentclass[journal]{IEEEtran}
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{url}
+
+\begin{document}
+
+\title{From Simulated to Real-World Signals: Motion-Text Mutual Guidance for Few-Shot Wearable Activity Recognition}
+
+\author{
+Xiaohui~Ye,
+Qifan~Sun,
+Kun~Wang,
+Jiaming~Zhang,
+Zenan~Fu,
+Lei~Zhang,
+and~Aiguo~Song,~\IEEEmembership{Senior Member,~IEEE}
+\thanks{This work was supported by the National Natural Science Foundation of China under Grant 62373194. (Corresponding author: Lei Zhang.)}%
+\thanks{Xiaohui Ye, Qifan Sun, Zenan Fu and Lei Zhang are with the School of Electrical and Automation Engineering, Nanjing Normal University, Nanjing 210023, China (e-mail: leizhang@njnu.edu.cn).}%
+\thanks{Kun Wang is with the School of Computer Science, Nanjing Audit University, Nanjing 211815, China.}%
+\thanks{Jiaming Zhang is with the School of Computing, Newcastle University, Newcastle upon Tyne, NE1 7RU, UK.}%
+\thanks{Aiguo Song is with the School of Instrument Science and Engineering, Southeast University, Nanjing 210096, China.}%
+}
+
+\markboth{IEEE TRANSACTIONS AND JOURNALS TEMPLATE,~Vol.~XX, No.~XX,~XXXX}%
+{Ye \MakeLowercase{\textit{et al.}}: Motion-Text Mutual Guidance for Few-Shot Wearable Activity Recognition}
+
+\maketitle
+
+\begin{abstract}
+Pretrained motion-language models align inertial signals with textual activity semantics, yet transferring them to real-world wearable sensing faces a substantial simulation-to-real distribution gap, and existing one-way adaptation methods largely overlook the bidirectional relation between motion and text modalities. In this paper, we propose \textbf{MOMA-Adapter}, a lightweight multimodal adaptation framework built upon a frozen pretrained motion-language model, which establishes bidirectional motion-text mutual guidance to efficiently bridge this gap under few-shot supervision. Concretely, a Text-to-Motion Guidance Module injects category-level textual semantics into motion prototypes to enhance semantic discrimination, while a Motion-to-Text Guidance Module refines textual representations from real-world IMU prototypes according to deployment characteristics. We further introduce MOMA-HP for lightweight hyperparameter optimization across diverse few-shot scenarios and MOMA-F for preference-guided refinement of the classification decision boundary using few-shot motion-text relationships. Extensive experiments on four wearable HAR benchmarks demonstrate that MOMA-Adapter effectively alleviates the simulation-to-real gap, and MOMA-F further boosts performance by 1.95\%--3.41\% over strong baselines, highlighting the practical value of bidirectional motion-text guidance in few-shot wearable activity recognition.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Human activity recognition, Internet of Things, sensors, few-shot learning, deep learning.
+\end{IEEEkeywords}
+
+\section{Introduction}
+\label{sec:intro}
+
+\subsection{Background}
+
+In recent years, Human Activity Recognition (HAR) has become an important research topic in Internet of Things (IoT) systems, with broad applications in smart environments, wearable sensing, and ubiquitous computing~\cite{har1,har2}. Among various sensing modalities, wearable sensor-based HAR has gradually become a dominant paradigm by leveraging commercial sensors, such as accelerometers and gyroscopes, integrated into smartphones and smartwatches. Compared with vision-based and WiFi-based solutions, wearable sensing methods provide advantages including low cost, high portability, and privacy-preserving continuous monitoring, making them particularly suitable for real-world and long-term activity recognition scenarios~\cite{har3,har4}.
+
+From the perspective of machine learning, HAR can be formulated as a time-series classification problem, where the objective is to infer human activity categories from continuous sensor measurements. Early approaches mainly relied on conventional machine learning algorithms, such as Naive Bayes, Support Vector Machine, and Random Forest. Driven by the success of convolutional neural networks (CNNs) in computer vision (CV) and Transformer architectures in natural language processing (NLP), deep learning methods have been increasingly introduced into the HAR domain. These approaches enable automatic learning of hierarchical representations directly from raw inertial measurement unit (IMU) signals, leading to substantial improvements in activity recognition performance~\cite{har5,har6}. Despite the rapid development of deep learning-based HAR methods, their performance heavily relies on large-scale and well-annotated sensor datasets. However, collecting such datasets in wearable scenarios remains challenging due to privacy concerns, user diversity, and the high cost of fine-grained motion annotation.
+
+\subsection{Main Challenges}
+
+This issue is particularly severe in wearable sensing scenarios. Unlike text and image data, inertial sensor signals lack explicit semantic descriptions and intuitive interpretability, making manual annotation more complex and time-consuming. Fine-grained motion patterns in IMU sequences are difficult to perceive directly and often require domain experts for sequence-level labeling. Moreover, long-duration sequences, ambiguous activity boundaries, and variations across users and devices further increase annotation difficulty. Consequently, real-world HAR applications have long suffered from limited labeled data, which restricts model generalization and real-world deployment.
+
+To reduce the cost of data annotation, existing studies have mainly explored two complementary strategies. The first strategy leverages cross-modal knowledge transfer by incorporating auxiliary modalities, such as activity descriptions, images, and videos, to provide additional supervision for inertial activity recognition. Although cross-modal approaches provide additional semantic supervision, they typically depend on manually collected paired multimodal datasets, which limits their applicability in large-scale wearable sensing scenarios. Alternatively, simulation-driven pretraining provides a scalable solution by generating large-scale labeled motion data without manual annotation. Representative motion-language models, such as UniMTS~\cite{unimts}, construct a physics-based simulation pipeline based on human motion datasets and map human motion sequences into full-body joint movements, further generating corresponding simulated IMU signals for pretraining.
+
+However, a substantial distribution gap still exists between simulated data and real wearable sensor data. Although physical simulation can generate motion trajectories that follow physical constraints and standardized IMU signals, it cannot fully capture the variations in real-world sensing environments. For instance, wearable devices such as smartwatches typically measure motion signals near the wrist rather than directly observing human joint movements. Therefore, even for the same activity, real IMU signals may exhibit different temporal patterns due to variations in sensor placement, orientation, user characteristics, and movement styles. This simulation-to-real distribution shift causes real-world HAR environments to exhibit complex and dynamically changing data distributions rather than a single target domain. Consequently, relying solely on simulation data for pretraining remains insufficient for robust adaptation to real wearable sensing environments, and effectively transferring large-scale motion representations to robust HAR deployment remains challenging.
+
+\subsection{Research Motivation}
+
+Motion-text contrastive models align motion sequences with language semantics to learn transferable representations, achieving strong generalization across HAR datasets. However, the transferability of these pretrained representations is still limited when applied to real-world wearable sensing scenarios, where substantial discrepancies exist between simulated motion signals and practical IMU observations. Our key motivation is to introduce a lightweight adapter between the pretrained model and real sensor observations. By learning from few-shot real-world data, the adapter can capture the distribution gap between simulated and real IMU signals while preserving the pretraining knowledge.
+
+Recent advances in parameter-efficient fine-tuning (PEFT) have provided effective solutions for adapting large-scale pretrained models to downstream tasks. Representative approaches include linear probing, prompt tuning (e.g., CoOp~\cite{coop}), and adapter-based methods (e.g., CLIP-Adapter~\cite{clipadapter}). However, these methods require additional optimization procedures and task-specific training, which increases adaptation complexity and limits rapid deployment under few-shot wearable scenarios. To further reduce adaptation costs, recent studies have explored training-free few-shot adaptation strategies. Representative methods, including Tip-Adapter~\cite{tipadapter}, APE~\cite{ape}, and GDA-CLIP~\cite{gdaclip}, construct task-specific classifiers through mechanisms such as cache-based retrieval, prior adjustment, or pretrained multimodal knowledge integration. These approaches achieve promising adaptation performance under limited supervision. However, these methods are mainly designed for vision-language models, where image-text pretraining provides dense semantic alignment. IMU signals contain weak explicit semantics and exhibit substantial temporal distribution variations across users, devices, and environments, and directly applying them to wearable HAR still remains challenging. Although motion-language models have learned a shared semantic representation space, real-world deployment variations further introduce significant distribution shifts and hinder effective adaptation. Therefore, an important challenge still remains: how to preserve pretrained cross-modal features while efficiently adapting representations to real-world IMU observations with limited supervision.
+
+\subsection{Our Approach}
+
+To address the aforementioned challenges, we propose a bidirectional motion-text guidance strategy for few-shot HAR adaptation. Unlike existing approaches that perform one-way knowledge transfer from auxiliary modalities to sensor representations, we explore mutual interaction between motion signals and textual semantics. Textual representations provide stable activity-level semantic priors that are insensitive to sensor-specific variations, while real-world IMU representations capture deployment-specific motion characteristics and provide feedback for adapting semantic representations toward target environments.
+
+Based on this insight, we propose \textbf{Mutual-Oriented Motion-Text Adapter} (MOMA-Adapter), a lightweight training-free multimodal time-series adaptation framework built upon the pretrained motion-language model UniMTS. MOMA-Adapter introduces two complementary guidance modules to achieve efficient few-shot adaptation through bidirectional motion-text interaction: a Text-to-Motion Guidance Module (T2M-GM) that incorporates category-level textual semantics into motion prototypes, and a Motion-to-Text Guidance Module (M2T-GM) that refines textual representations from real-world IMU prototypes according to deployment characteristics. We further introduce MOMA-HP for lightweight hyperparameter optimization across diverse few-shot scenarios, and MOMA-F for preference-guided refinement of the classification decision boundary using few-shot motion-text relationships.
+
+\section{Related Works}
+\label{sec:related}
+
+\subsection{Human Activity Recognition}
+
+Human activity recognition has become an essential component of context-aware computing, with broad applications in Internet of Things (IoT) systems, smart environments, healthcare monitoring, and wearable sensing~\cite{har1}. Compared with vision-based approaches, sensor-based HAR offers advantages in privacy preservation, energy efficiency, and deployment flexibility. Wearable sensing-based HAR has emerged as a dominant paradigm by leveraging ubiquitous devices equipped with accelerometers and gyroscopes~\cite{har3}. Early sensor-based HAR methods relied on handcrafted statistical and frequency-domain features with conventional classifiers, including Naive Bayes, Support Vector Machine, and Random Forest. With the advancement of deep learning, HAR has shifted toward end-to-end representation learning. CNN-based methods automatically extract discriminative patterns from raw sensor sequences~\cite{har5}, while recurrent models further capture temporal dependencies in motion signals~\cite{har6}. More recently, Transformer-based architectures and attention mechanisms have been introduced to model long-range dependencies and improve feature representation of multi-channel inertial data~\cite{har7}. Despite recent architectural advances, supervised HAR methods remain constrained by the scarcity of high-quality labeled sensor data, which is difficult to obtain at scale in diverse real-world scenarios.
+
+\subsection{Cross-modal and Self-supervised Representation Learning for HAR}
+
+To alleviate labeled data scarcity, recent studies have explored cross-modal learning to obtain transferable HAR representations from auxiliary modalities. TS2ACT~\cite{ts2act} and Vi2ACT~\cite{vi2act} leverage visual knowledge and generated videos, respectively, to provide semantic supervision for inertial representation learning. UniMTS~\cite{unimts} further extends this paradigm by constructing a large-scale synthetic motion corpus and aligning motion representations with textual activity descriptions through cross-modal contrastive learning. Meanwhile, self-supervised learning (SSL) has been widely explored to leverage large-scale unlabeled IMU data for transferable HAR representation learning. Recent approaches further explore masked modeling and multimodal alignment, including BERT-style masked prediction for inertial time series (e.g., LIMU-Bert~\cite{limubert}), masked motion modeling over discrete motion primitives (e.g., MoP-Former~\cite{mopformer}), and multimodal alignment to transfer knowledge from auxiliary modalities to IMU signals (e.g., PRIMUS~\cite{primus} and IMG2IMU~\cite{img2imu}). Despite their effectiveness, existing cross-modal and self-supervised approaches still face challenges in adapting pretrained representations to real-world few-shot HAR scenarios.
+
+\subsection{Limited-Supervision Adaptation}
+
+The second direction focuses on adapting pretrained representations to target domains under limited supervision. Existing approaches mainly follow two paradigms: parameter-efficient fine-tuning (PEFT) and training-free adaptation. PEFT methods adapt frozen models by optimizing a small number of task-specific parameters. Linear probing trains lightweight classifiers on frozen features, while CoOp~\cite{coop} and CLIP-Adapter~\cite{clipadapter} introduce learnable prompts and feature adapters for efficient semantic adaptation. Alternatively, training-free methods avoid parameter optimization and perform adaptation through feature calibration or classifier refinement. Tip-Adapter~\cite{tipadapter}, APE~\cite{ape}, and GDA-CLIP~\cite{gdaclip} exploit few-shot features, prompt refinement, and distribution modeling for efficient prediction. Recent studies further explore training-free multimodal fusion: TAMP~\cite{tamp} with LDA fusion improves few-shot recognition by combining complementary modality predictions, while CapS-Adapter~\cite{capsadapter} and IDEA~\cite{idea} leverage generated captions or descriptions to refine cached features. However, existing training-free adaptation methods have been primarily developed for vision-language models or general recognition tasks and do not explicitly consider the unique challenges of wearable sensing. Therefore, developing efficient adaptation strategies for bridging pretrained motion representations and real-world IMU data remains an important challenge.
+
+\section{Methodology}
+\label{sec:method}
+
+% ============================================================
+% Methodology intentionally omitted.
+% This section is under active development and has been
+% excluded from the current public draft on request.
+% Planned contents (mirroring the DCT-PT / IEEE structure):
+%   III-A  Preliminary
+%   III-B  Text-to-Motion Guidance Module (T2M-GM)
+%   III-C  Motion-to-Text Guidance Module (M2T-GM)
+%   III-D  Bidirectional Mutual Guidance
+%   III-E  MOMA-HP: Lightweight Hyperparameter Optimization
+%   III-F  MOMA-F: Preference-Guided Decision Refinement
+% ============================================================
+
+\section{Experiments}
+\label{sec:exp}
+
+% ============================================================
+% Experiments intentionally omitted.
+% This section is under active development and has been
+% excluded from the current public draft on request.
+% Planned contents (mirroring the DCT-PT / IEEE structure):
+%   IV-A  Experimental Setup
+%   IV-B  Baselines and Comparison Methods
+%   IV-C  Main Results
+%   IV-D  Ablation Studies
+%   IV-E  Analysis and Visualization
+% ============================================================
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+In this paper, we explored the hidden adaptation potential of pretrained motion-language models for few-shot wearable activity recognition. To bridge the simulation-to-real distribution gap under limited labeled data, we proposed MOMA-Adapter, a lightweight multimodal adaptation framework that establishes bidirectional motion-text mutual guidance, complemented by MOMA-HP for automatic hyperparameter optimization and MOMA-F for preference-guided refinement of the decision boundary. Experimental results on four wearable HAR benchmarks validate the effectiveness of the proposed method in challenging few-shot scenarios. Detailed methodology and experimental analyses will be released in a future version of this manuscript.
+
+% ============================================================
+% Bibliography
+% ============================================================
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
+
+\end{document}
