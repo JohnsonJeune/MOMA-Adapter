@@ -1,6 +1,6 @@
 # MOMA-Adapter
 
-**From Simulated to Real-World Signals: Motion-Text Mutual Adaptation for Few-Shot Wearable Activity Recognition**
+**From Simulated to Real-World Signals: Motion-Text Mutual Guidance Adaptation for Few-Shot Wearable Activity Recognition**
 
 MOMA-Adapter is a lightweight multimodal adaptation framework built upon a frozen pretrained motion-language model. It establishes **bidirectional motion-text mutual guidance** to bridge the simulation-to-real distribution gap for few-shot wearable Human Activity Recognition (HAR).
 
